@@ -154,22 +154,30 @@ public abstract class MediaSessionService extends Service {
    */
   @UnstableApi
   public interface Listener {
+
     /**
      * Called when the service fails to start in the foreground and a {@link
      * ForegroundServiceStartNotAllowedException} is thrown on Android 12 or later.
      */
     @RequiresApi(31)
-    default void onForegroundServiceStartNotAllowedException() {}
+    default void onForegroundServiceStartNotAllowedException() {
+    }
+
+    default void onErrorException(Exception e) {
+    }
   }
 
-  /** The action for {@link Intent} filter that must be declared by the service. */
+  /**
+   * The action for {@link Intent} filter that must be declared by the service.
+   */
   public static final String SERVICE_INTERFACE = "androidx.media3.session.MediaSessionService";
 
   /**
    * The default timeout for a session to stay in a foreground service state after it paused,
    * stopped, failed or ended.
    */
-  @UnstableApi public static final long DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS = 600_000;
+  @UnstableApi
+  public static final long DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS = 600_000;
 
   /**
    * The behavior for showing notifications when the {@link Player} is in {@link Player#STATE_IDLE}.
@@ -185,32 +193,40 @@ public abstract class MediaSessionService extends Service {
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef({
-    SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
-    SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER,
-    SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR
+      SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
+      SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER,
+      SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR
   })
-  public @interface ShowNotificationForIdlePlayerMode {}
+  public @interface ShowNotificationForIdlePlayerMode {
+
+  }
 
   /**
    * Always show a notification when the {@link Player} is in {@link Player#STATE_IDLE}, has media,
    * and the notification wasn't explicitly dismissed.
    */
-  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS = 1;
+  @UnstableApi
+  public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS = 1;
 
-  /** Never show a notification when the {@link Player} is in {@link Player#STATE_IDLE}. */
-  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER = 2;
+  /**
+   * Never show a notification when the {@link Player} is in {@link Player#STATE_IDLE}.
+   */
+  @UnstableApi
+  public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER = 2;
 
   /**
    * Shows a notification when the {@link Player} is in {@link Player#STATE_IDLE} due to {@link
    * Player#stop} or an error, has media, and the notification wasn't explicitly dismissed.
    */
-  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
+  @UnstableApi
+  public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
 
   private static final String TAG = "MSessionService";
 
   private final Object lock;
   private final Handler mainHandler;
-  @Nullable private MediaSessionServiceStub stub;
+  @Nullable
+  private MediaSessionServiceStub stub;
   private @MonotonicNonNull MediaNotificationManager mediaNotificationManager;
   private @MonotonicNonNull DefaultActionFactory actionFactory;
 
@@ -223,7 +239,9 @@ public abstract class MediaSessionService extends Service {
 
   private boolean defaultMethodCalled;
 
-  /** Creates a service. */
+  /**
+   * Creates a service.
+   */
   public MediaSessionService() {
     lock = new Object();
     mainHandler = new Handler(Looper.getMainLooper());
@@ -411,23 +429,22 @@ public abstract class MediaSessionService extends Service {
     switch (action) {
       case MediaSessionService.SERVICE_INTERFACE:
         return getServiceBinder();
-      case MediaBrowserServiceCompat.SERVICE_INTERFACE:
-        {
-          ControllerInfo controllerInfo = ControllerInfo.createLegacyControllerInfo();
-          @Nullable MediaSession session = onGetSession(controllerInfo);
-          if (session == null) {
-            // Legacy MediaBrowser(Compat) cannot connect to this service.
-            return null;
-          }
-          addSession(session);
-          // Return a specific session's legacy binder although the Android framework caches
-          // the returned binder here and next binding request may reuse cached binder even
-          // after the session is closed.
-          // Disclaimer: Although MediaBrowserCompat can only get the session that initially
-          // set, it doesn't make things bad. Such limitation had been there between
-          // MediaBrowserCompat and MediaBrowserServiceCompat.
-          return session.getLegacyBrowserServiceBinder();
+      case MediaBrowserServiceCompat.SERVICE_INTERFACE: {
+        ControllerInfo controllerInfo = ControllerInfo.createLegacyControllerInfo();
+        @Nullable MediaSession session = onGetSession(controllerInfo);
+        if (session == null) {
+          // Legacy MediaBrowser(Compat) cannot connect to this service.
+          return null;
         }
+        addSession(session);
+        // Return a specific session's legacy binder although the Android framework caches
+        // the returned binder here and next binding request may reuse cached binder even
+        // after the session is closed.
+        // Disclaimer: Although MediaBrowserCompat can only get the session that initially
+        // set, it doesn't make things bad. Such limitation had been there between
+        // MediaBrowserCompat and MediaBrowserServiceCompat.
+        return session.getLegacyBrowserServiceBinder();
+      }
       default:
         return null;
     }
@@ -667,7 +684,7 @@ public abstract class MediaSessionService extends Service {
    *
    * <p>This method will be called on the main thread.
    *
-   * @param session A session that needs notification update.
+   * @param session                   A session that needs notification update.
    * @param startInForegroundRequired Whether the service is required to start in the foreground.
    */
   @SuppressWarnings("deprecation") // Calling deprecated method.
@@ -691,7 +708,7 @@ public abstract class MediaSessionService extends Service {
         mainHandler,
         () ->
             getMediaNotificationManager(
-                    /* initialMediaNotificationProvider= */ mediaNotificationProvider)
+                /* initialMediaNotificationProvider= */ mediaNotificationProvider)
                 .setMediaNotificationProvider(mediaNotificationProvider));
   }
 
@@ -716,7 +733,9 @@ public abstract class MediaSessionService extends Service {
         onForegroundServiceStartNotAllowedException();
         return false;
       }
-      throw e;
+      onErrorException(e);
+      return false;
+//      throw e;
     }
     return true;
   }
@@ -763,6 +782,16 @@ public abstract class MediaSessionService extends Service {
           @Nullable MediaSessionService.Listener serviceListener = getListener();
           if (serviceListener != null) {
             serviceListener.onForegroundServiceStartNotAllowedException();
+          }
+        });
+  }
+
+  private void onErrorException(Exception e) {
+    mainHandler.post(
+        () -> {
+          @Nullable MediaSessionService.Listener serviceListener = getListener();
+          if (serviceListener != null) {
+            serviceListener.onErrorException(e);
           }
         });
   }
@@ -898,6 +927,7 @@ public abstract class MediaSessionService extends Service {
 
   @RequiresApi(31)
   private static final class Api31 {
+
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;

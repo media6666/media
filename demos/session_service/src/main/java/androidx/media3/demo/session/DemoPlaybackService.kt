@@ -217,6 +217,10 @@ open class DemoPlaybackService : MediaLibraryService() {
   @OptIn(UnstableApi::class) // MediaSessionService.Listener
   private inner class MediaSessionServiceListener : Listener {
 
+    override fun onErrorException(e: java.lang.Exception) {
+      super.onErrorException(e)
+    }
+
     /**
      * This method is only required to be implemented on Android 12 or above when an attempt is made
      * by a media controller to resume playback when the {@link MediaSessionService} is in the
