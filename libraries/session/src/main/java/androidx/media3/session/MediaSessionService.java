@@ -736,6 +736,9 @@ public abstract class MediaSessionService extends Service {
       onErrorException(e);
       return false;
 //      throw e;
+    } catch (Exception e) {
+      onErrorException(e);
+      return false;
     }
     return true;
   }
